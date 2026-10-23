@@ -5,6 +5,9 @@
 **Blueprint de origem:** release oficial **beta-2026-08** (14/08/2026) — `BlueprintFramework/framework`
 **Resultado:** overlay re-portado para a base do 1.15.2 e versionado como `2026-10` → `blueprint-2026-10.zip`
 
+**Publicado em:** https://github.com/eduhdev021/blueprint-2026-10 — release `2026-10` com `release.zip` anexado
+(`https://github.com/eduhdev021/blueprint-2026-10/releases/latest/download/release.zip`)
+
 ---
 
 ## 1. O diagnóstico (por que o release oficial não servia)
