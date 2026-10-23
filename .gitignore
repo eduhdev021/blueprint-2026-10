@@ -1,0 +1,16 @@
+# dependências e artefatos de build
+node_modules/
+.build-cache.json
+release.zip
+public/assets/*.js
+public/assets/*.map
+public/assets/manifest.json
+
+# estado local de instalação
+.blueprint/
+.blueprintrc
+*.blueprint
+
+# sistema
+.DS_Store
+*.log

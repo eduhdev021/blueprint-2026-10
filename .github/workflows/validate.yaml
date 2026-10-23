@@ -1,0 +1,123 @@
+name: validate
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  PANEL_TAG: v1.15.2
+
+jobs:
+  validate:
+    name: Overlay + painel ${{ env.PANEL_TAG }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do overlay
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - name: Checkout do painel (com overlay)
+        uses: actions/checkout@v4
+        with:
+          repository: pterodactyl/panel
+          ref: ${{ env.PANEL_TAG }}
+          path: panel
+
+      - name: Checkout do painel (referência limpa)
+        uses: actions/checkout@v4
+        with:
+          repository: pterodactyl/panel
+          ref: ${{ env.PANEL_TAG }}
+          path: vanilla
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Aplicar overlay sobre o painel
+        run: |
+          rsync -a --exclude='.git' --exclude='node_modules' overlay/ panel/
+          rm -rf panel/.git
+
+      - name: Instalar dependências do painel
+        working-directory: panel
+        run: yarn install --network-timeout 600000
+
+      - name: Compartilhar node_modules com a referência limpa
+        run: ln -s "${{ github.workspace }}/panel/node_modules" "${{ github.workspace }}/vanilla/node_modules"
+
+      - name: Instalar ferramentas de validação
+        working-directory: overlay
+        run: npm install --no-save esbuild php-parser
+
+      - name: Sintaxe PHP do overlay
+        run: node overlay/tools/phpcheck.mjs $(find overlay -name '*.php' -not -path '*/node_modules/*')
+
+      - name: Sintaxe TS/TSX e resolução de imports
+        env:
+          BP_ROOT: ${{ github.workspace }}/overlay
+          BP_PANEL_ROOT: ${{ github.workspace }}/panel
+        run: node overlay/tools/validate.mjs
+
+      - name: TypeScript — o overlay não pode introduzir erros novos
+        run: |
+          set -euo pipefail
+          norm='s/^\([^(]*\)([0-9]*,[0-9]*): error /\1: /'
+          ( cd vanilla && npx tsc --noEmit 2>&1 | sed -n "$norm p" | sort -u ) > /tmp/vanilla.txt || true
+          ( cd panel   && npx tsc --noEmit 2>&1 | sed -n "$norm p" | sort -u ) > /tmp/overlay.txt || true
+          echo "erros no painel limpo: $(wc -l < /tmp/vanilla.txt)"
+          echo "erros com o overlay:   $(wc -l < /tmp/overlay.txt)"
+          new=$(comm -13 /tmp/vanilla.txt /tmp/overlay.txt || true)
+          fixed=$(comm -23 /tmp/vanilla.txt /tmp/overlay.txt || true)
+          if [ -n "$fixed" ]; then echo "— deixaram de existir:"; echo "$fixed"; fi
+          if [ -n "$new" ]; then
+            echo "— introduzidos pelo overlay:"
+            echo "$new"
+            echo "::error::O overlay introduziu novos erros de TypeScript."
+            exit 1
+          fi
+          echo "OK: nenhum erro de tipo novo introduzido pelo overlay."
+
+      - name: Build de produção (webpack)
+        working-directory: panel
+        run: yarn run build:production
+
+      - name: Conferir que os hooks do Blueprint entraram no bundle
+        working-directory: panel
+        run: |
+          set -e
+          grep -q 'BlueprintFramework' public/assets/*.js
+          grep -q 'extensions/blueprint/eggs' public/assets/*.js
+          echo "OK: hooks do Blueprint presentes no bundle."
+
+      - name: Empacotar release
+        run: |
+          cd overlay
+          rm -rf node_modules
+          zip -rq ../release.zip . -x '*.DS_Store'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ env.PANEL_TAG }}
+          path: release.zip
+
+  release:
+    name: Publicar release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Anexar release.zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/release.zip
+          generate_release_notes: true
