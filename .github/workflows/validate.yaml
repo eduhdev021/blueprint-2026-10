@@ -50,17 +50,22 @@ jobs:
         run: ln -s "${{ github.workspace }}/panel/node_modules" "${{ github.workspace }}/vanilla/node_modules"
 
       - name: Instalar ferramentas de validação
-        working-directory: overlay
-        run: npm install --no-save esbuild php-parser
+        run: |
+          # diretório próprio: o package.json do painel tem conflitos de peer deps
+          mkdir -p "$RUNNER_TEMP/valtools"
+          cp overlay/tools/*.mjs "$RUNNER_TEMP/valtools/"
+          cd "$RUNNER_TEMP/valtools"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund esbuild php-parser
 
       - name: Sintaxe PHP do overlay
-        run: node overlay/tools/phpcheck.mjs $(find overlay -name '*.php' -not -path '*/node_modules/*')
+        run: node "$RUNNER_TEMP/valtools/phpcheck.mjs" $(find overlay -name '*.php' -not -path '*/node_modules/*')
 
       - name: Sintaxe TS/TSX e resolução de imports
         env:
           BP_ROOT: ${{ github.workspace }}/overlay
           BP_PANEL_ROOT: ${{ github.workspace }}/panel
-        run: node overlay/tools/validate.mjs
+        run: node "$RUNNER_TEMP/valtools/validate.mjs"
 
       - name: TypeScript — o overlay não pode introduzir erros novos
         run: |
