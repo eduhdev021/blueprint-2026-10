@@ -96,7 +96,7 @@ jobs:
       - name: Empacotar release
         run: |
           cd overlay
-          rm -rf node_modules
+          rm -rf node_modules .github tools CHANGELOG.md .gitignore README.md
           zip -rq ../release.zip . -x '*.DS_Store'
 
       - uses: actions/upload-artifact@v4
