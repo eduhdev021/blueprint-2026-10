@@ -5,7 +5,7 @@ com o overlay re-portado para a base do **Pterodactyl v1.15.2**.
 
 Ele existe porque o release oficial `beta-2026-08` sobrescreve arquivos do painel com cópias de
 versões antigas (v1.9 a v1.13) e, num painel 1.15.2, isso **rebaixa** recursos e remove o middleware
-`SetSecurityHeaders`. O diagnóstico completo está em [`COMPATIBILITY.md`](COMPATIBILITY.md).
+`SetSecurityHeaders`. O diagnóstico completo está em [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md).
 
 ## Compatibilidade
 
